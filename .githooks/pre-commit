@@ -4,7 +4,7 @@ set -e
 # Prevent committing unencrypted Ansible Vault files
 UNENCRYPTED_VAULTS=""
 
-for file in $(git diff --cached --name-only --diff-filter=AM | grep -E 'vault\.ya?ml$' || true); do
+for file in $(git diff --cached --name-only --diff-filter=AM | grep -E '(^|/)[^/]*vault[^/]*\.ya?ml$' || true); do
     if [ -f "$file" ]; then
         if ! head -n 1 "$file" | grep -q '^\$ANSIBLE_VAULT;'; then
             UNENCRYPTED_VAULTS="$UNENCRYPTED_VAULTS  - $file\n"
