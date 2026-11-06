@@ -16,19 +16,30 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install OpenTimestamps
-        run: pip install git-ots
+      - name: Configure Git Author
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Fetch OTS proofs
-        run: git fetch origin 'refs/ots/*:refs/ots/*' || true
+      - name: Install OpenTimestamps
+        run: pipx install git-ots
+
+      - name: Fetch OTS tags and proofs
+        run: |
+          git fetch origin 'refs/tags/ots/*:refs/tags/ots/*' || true
 
       - name: Upgrade pending timestamps
         run: git ots upgrade
 
+      - name: Run timestamping if due
+        run: git ots run || true
+
       - name: Verify all timestamps
         run: git ots verify
 
-      - name: Push upgraded proofs back to GitHub
-        run: git push origin 'refs/ots/*:refs/ots/*'
+      - name: Push upgraded proofs and tags back
+        run: |
+          git push origin HEAD:${{ github.ref_name }} || true
+          git push origin 'refs/tags/ots/*:refs/tags/ots/*' || true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

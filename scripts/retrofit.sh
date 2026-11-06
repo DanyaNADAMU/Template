@@ -29,4 +29,12 @@ cp "$TEMPLATE_DIR/.allowed_signers" "$TARGET/.allowed_signers"
 # 4. Activate hooks in git
 (cd "$TARGET" && git config core.hooksPath .githooks)
 
+# 5. Scaffold documentation layout
+for dir in architecture adr plans ideas ru en; do
+    mkdir -p "$TARGET/docs/$dir"
+done
+if [ ! -f "$TARGET/docs/adr/template.md" ]; then
+    cp -r "$TEMPLATE_DIR/docs/" "$TARGET/"
+fi
+
 echo "==> Retrofit completed! Files added to $TARGET. Activate with a commit."
