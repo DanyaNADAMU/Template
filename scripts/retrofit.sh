@@ -14,9 +14,8 @@ echo "==> Retrofitting $TARGET to standard baseline..."
 
 # 1. Copy hooks
 mkdir -p "$TARGET/.githooks"
-cp "$TEMPLATE_DIR/.githooks/post-commit" "$TARGET/.githooks/"
-cp "$TEMPLATE_DIR/.githooks/pre-push" "$TARGET/.githooks/"
-chmod +x "$TARGET/.githooks/post-commit" "$TARGET/.githooks/pre-push"
+cp "$TEMPLATE_DIR/.githooks/"* "$TARGET/.githooks/"
+chmod +x "$TARGET/.githooks/"*
 
 # 2. Copy CI workflow
 mkdir -p "$TARGET/.github/workflows"
