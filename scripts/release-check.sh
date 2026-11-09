@@ -90,7 +90,7 @@ if ! grep -Fq "## [$CURRENT_TAG]" "$CHANGELOG_FILE"; then
     printf "Add an explicit section: '## [%s] - YYYY-MM-DD' before releasing.\n" "$CURRENT_TAG"
     exit 1
 fi
-printf "${GREEN}✓ [RELEASE GATE] Release '%s' is documented in CHANGELOG.md.${NC}\n"
+printf "${GREEN}✓ [RELEASE GATE] Release '%s' is documented in CHANGELOG.md.${NC}\n" "$CURRENT_TAG"
 
 printf "${BLUE}========================================================================${NC}\n"
 printf "${GREEN}[RELEASE GATE PASSED] Production release '%s' approved on branch main.${NC}\n" "$CURRENT_TAG"
