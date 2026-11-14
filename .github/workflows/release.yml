@@ -14,7 +14,7 @@ on:
 jobs:
   release:
     name: Build, Hash, Stamp & Publish Release
-    runs-on: ubuntu-latest
+    runs-on: docker
     permissions:
       contents: write
 
