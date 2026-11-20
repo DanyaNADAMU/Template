@@ -47,13 +47,21 @@ cp "$TEMPLATE_DIR/scripts/release.sh" "$TARGET/scripts/"
 chmod +x "$TARGET/scripts/release-check.sh" "$TARGET/scripts/release.sh"
 
 # 6. Configure Git hooks and signing
+# Use the signing key from the active environment ($HOME), not a hardcoded
+# root path — retrofit runs as a regular user on native workstations.
+SIGNING_KEY="${HOME}/.ssh/danya-git.pub"
+if [ ! -f "$SIGNING_KEY" ]; then
+    echo "ERROR: signing key not found at $SIGNING_KEY" >&2
+    echo "Provide the danya-git Ed25519 public key before retrofitting." >&2
+    exit 1
+fi
 (
     cd "$TARGET"
     git config core.hooksPath .githooks
     git config commit.gpgsign true
     git config tag.gpgsign true
     git config gpg.format ssh
-    git config user.signingkey /root/.ssh/danya-git.pub
+    git config user.signingkey "$SIGNING_KEY"
     git config gpg.ssh.allowedSignersFile .allowed_signers
 )
 
