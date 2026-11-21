@@ -12,6 +12,10 @@ on:
 
 jobs:
   ots:
+    # contents: write is the right ots.yml needs to push upgraded proofs
+    # back to main; granted here so the caller, not the catalog, owns it.
+    permissions:
+      contents: write
     uses: Danyanadamu/Workflows/.github/workflows/ots.yml@v1
     secrets:
       btc_getblock_key: ${{ secrets.BTC_GETBLOCK_KEY }}

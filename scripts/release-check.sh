@@ -13,6 +13,10 @@
 #   0 - All invariants passed or emergency override active
 #   1 - Release invariant violation detected
 # ==============================================================================
+# shellcheck disable=SC2059
+# The color codes are fixed constants interpolated into printf formats,
+# never caller-controlled data; keeping them in the format string is the
+# idiomatic one-line-per-message style for this gate's output.
 set -e
 
 RED='\033[0;31m'

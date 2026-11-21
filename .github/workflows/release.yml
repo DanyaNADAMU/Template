@@ -1,14 +1,19 @@
 name: Release
 
-# Production pipeline template: signed SemVer tags build the release image
-# and roll it out to the production contour. Tag push is the only trigger:
-# production deploys never ride on plain commits to main.
+# Production pipeline template: signed SemVer tags gate through the
+# shared release-precheck, build the release image through the shared
+# catalog, and roll it out to the production contour. Tag push is the
+# only trigger: production deploys never ride on plain commits to main.
 #
 # Adapt per service:
-#   - container context: point `context` at the Containerfile directory.
-#   - non-container repositories (Keys, Infra): replace the image jobs with
-#     the source-archive attestation flow (git archive -> SHA256SUMS ->
-#     `ots stamp` -> GitHub Release with checksums and proof attached).
+#   - add the same `test`/`lint` job as in build.yml and make `build`
+#     `needs:` it, so a tag can never ship untested code.
+#   - container context: point `context`/`file` at the Containerfile
+#     directory; version-locked images pass their build args here too.
+#   - non-container repositories (Keys, Infra): replace the image jobs
+#     with the source-archive attestation flow (git archive ->
+#     SHA256SUMS -> `ots stamp` -> GitHub Release with checksums and
+#     proof attached).
 #
 # Repo prerequisites (set once in Settings):
 #   - vars.PROD_HOST / vars.PROD_PORT — production sshd coordinates
@@ -20,56 +25,36 @@ on:
   push:
     tags:
       - 'v*'
-  workflow_dispatch:
-
-env:
-  REGISTRY: ghcr.io
 
 jobs:
-  release:
-    runs-on: ubuntu-latest
+  precheck:
+    # Shared gate before anything is built: strict SemVer, CHANGELOG
+    # section, SSH tag-signature verification against the caller's
+    # .allowed_signers, ancestry proof from the production branch.
+    uses: Danyanadamu/Workflows/.github/workflows/release-precheck.yml@v1
+    with:
+      base_branch: main
+
+  build:
+    needs: precheck
     permissions:
       contents: read
       packages: write
-    outputs:
-      image_ref: ${{ steps.image.outputs.image_ref }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Normalize image name to lowercase
-        # GHCR rejects any path segment containing uppercase letters, and
-        # github.repository preserves the mixed-case owner/name spelling.
-        run: echo "IMAGE_NAME=${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push release image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          push: true
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-
-      - name: Record pushed image ref
-        id: image
-        run: echo "image_ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+    uses: Danyanadamu/Workflows/.github/workflows/container-build.yml@v1
+    with:
+      context: .
+      file: ./Containerfile
+      image_tag: ${{ github.ref_name }}
+      extra_tags: latest
 
   deploy:
-    needs: release
+    needs: build
     uses: Danyanadamu/Workflows/.github/workflows/deploy.yml@v1
     with:
       host: ${{ vars.PROD_HOST }}
       port: ${{ vars.PROD_PORT }}
       user: apps
-      image: ${{ needs.release.outputs.image_ref }}
+      image: ${{ needs.build.outputs.image_ref }}
     secrets:
       deploy_key: ${{ secrets.PROD_DEPLOY_KEY }}
       host_key: ${{ secrets.PROD_DEPLOY_HOST_KEY }}

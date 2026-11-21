@@ -6,6 +6,10 @@
 #   scripts/release.sh v1.2.0
 #   scripts/release.sh 1.2.0
 # ==============================================================================
+# shellcheck disable=SC2059
+# The color codes are fixed constants interpolated into printf formats,
+# never caller-controlled data; keeping them in the format string is the
+# idiomatic one-line-per-message style for this script's output.
 set -e
 
 RED='\033[0;31m'

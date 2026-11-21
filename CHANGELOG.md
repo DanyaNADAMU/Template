@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Workflow skeletons build images through the shared
+  `Workflows/container-build.yml` catalog (lowercase GHCR name, layer
+  cache, provenance + SBOM, Trivy severity gate) and gate releases
+  through `Workflows/release-precheck.yml` (strict SemVer, CHANGELOG
+  section, SSH tag-signature verification, ancestry from `main`).
+- Skeletons now call for a `test`/`lint` job ahead of the build job and
+  carry concurrency groups, `ubuntu-24.04` runners, and SHA-pinned
+  actions; the `ots-cron.yml` stub grants `contents: write` explicitly.
+
 ## [v1.0.0] - 2026-11-09
 
 ### Added
