@@ -1,15 +1,21 @@
 name: Build & Staging Deploy
 
-# Trunk pipeline template: every push to main or a feature branch builds
-# the container image and, on feature branches only, rolls it out to the
+# Trunk pipeline template: every push to main or a feature branch runs
+# the service's lint/test jobs, builds the container image through the
+# shared catalog, and, on feature branches only, rolls it out to the
 # staging testbed. Production releases run from release.yml on tags.
 #
 # Adapt per service:
-#   - container context: point `context` at the directory holding the
-#     Containerfile (Agent uses `container/`, most services use `.`).
+#   - add a `test` (and/or `lint`) job before `build` and make `build`
+#     `needs:` it — an image must never be produced from unverified
+#     code. Reference implementations: Assistant (uv composite action),
+#     Agent (shellcheck + hadolint).
+#   - container context: point `context`/`file` at the directory holding
+#     the Containerfile (Agent uses `container/`, most services use `.`).
 #   - version lock: if the image is version-locked (vendored upstream),
-#     extract the version in a dedicated step and pass it as a build arg
-#     and an extra image tag; otherwise the `<sha>` tag alone suffices.
+#     add a `resolve` job extracting the version, pass it as a build arg
+#     in `build_args`, and publish it as an `extra_tag` on main pushes
+#     only; otherwise the `<sha>` tag alone suffices.
 #   - non-container repositories (Keys, Infra): delete this workflow —
 #     they have no image to build, only the ots-cron.yml stub remains.
 on:
@@ -23,46 +29,27 @@ on:
       - main
   workflow_dispatch:
 
-env:
-  REGISTRY: ghcr.io
+concurrency:
+  # Same-branch pushes supersede each other: the newest ref wins and
+  # stale staging rolls are cancelled before they start.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # Single canonical build path from the shared catalog: lowercase
+    # GHCR name, layer cache, provenance + SBOM, Trivy severity gate.
     permissions:
       contents: read
       packages: write
-    outputs:
-      image_ref: ${{ steps.image.outputs.image_ref }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Normalize image name to lowercase
-        # GHCR rejects any path segment containing uppercase letters, and
-        # github.repository preserves the mixed-case owner/name spelling.
-        run: echo "IMAGE_NAME=${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push image
-        # PR builds are verification-only: no push, so a draft PR can
-        # never move the tags the staging testbed pins.
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
-
-      - name: Record pushed image ref
-        id: image
-        run: echo "image_ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}" >> "$GITHUB_OUTPUT"
+    uses: Danyanadamu/Workflows/.github/workflows/container-build.yml@v1
+    with:
+      context: .
+      file: ./Containerfile
+      image_tag: ${{ github.sha }}
+      # PR builds are verification-only: no push, so a draft PR can
+      # never move the tags the staging testbed pins.
+      push: ${{ github.event_name != 'pull_request' }}
 
   staging-deploy:
     needs: build
