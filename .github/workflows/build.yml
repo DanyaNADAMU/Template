@@ -24,16 +24,27 @@ on:
       - main
       - 'feat/**'
       - 'fix/**'
+    # Documentation-only pushes skip the pipeline: no image content can
+    # change, so the build and the staging roll they would trigger are
+    # pure runner cost.
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
   pull_request:
     branches:
       - main
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
   workflow_dispatch:
 
 concurrency:
-  # Same-branch pushes supersede each other: the newest ref wins and
-  # stale staging rolls are cancelled before they start.
+  # Same-branch pushes queue, the newest pending run supersedes older
+  # ones, but a running deploy is NEVER cancelled mid-roll: the wrapper
+  # owns capture/rollback atomically and a half-cut deploy is exactly
+  # what it exists to prevent.
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build:
