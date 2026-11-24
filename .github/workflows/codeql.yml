@@ -1,0 +1,29 @@
+name: CodeQL SAST
+
+# Caller stub: first-party CodeQL static analysis lives in the shared
+# catalog. Adapt per service: set the JSON language array to the
+# CodeQL-supported languages this repository actually ships (e.g.
+# '["python"]', '["go"]'); repositories without a supported language
+# (shell/Dockerfile only) delete this workflow and rely on shellcheck +
+# hadolint as their SAST-equivalent gate.
+on:
+  push:
+    branches:
+      - main
+      - 'feat/**'
+      - 'fix/**'
+  pull_request:
+    branches:
+      - main
+  schedule:
+    - cron: '15 5 * * 1'
+  workflow_dispatch:
+
+jobs:
+  sast:
+    permissions:
+      contents: read
+      security-events: write
+    uses: Danyanadamu/Workflows/.github/workflows/sast.yml@v1
+    with:
+      languages: '["python"]'

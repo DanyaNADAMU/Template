@@ -47,8 +47,35 @@ jobs:
       image_tag: ${{ github.ref_name }}
       extra_tags: latest
 
-  deploy:
+  attest:
     needs: build
+    # The signing right lives on the caller's own job: id-token grants
+    # never cross a `uses:` boundary, so the catalog cannot sign for us.
+    # Public repositories get the full provenance loop (deploy.yml
+    # verifies the attestation before touching a host); user-owned
+    # private repositories cannot host attestations at all — delete this
+    # job there and pass `verify_provenance: false` to the deploy.
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Sign release provenance (Sigstore, runner OIDC)
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ghcr.io/${{ github.repository }}
+          subject-digest: ${{ needs.build.outputs.image_digest }}
+
+  deploy:
+    needs: [build, attest]
+    # attestations: read feeds deploy.yml's provenance verification with
+    # the job token; public repos could go anonymous, the explicit grant
+    # keeps the contour deterministic.
+    permissions:
+      contents: read
+      attestations: read
     uses: Danyanadamu/Workflows/.github/workflows/deploy.yml@v1
     with:
       host: ${{ vars.PROD_HOST }}
@@ -58,3 +85,34 @@ jobs:
     secrets:
       deploy_key: ${{ secrets.PROD_DEPLOY_KEY }}
       host_key: ${{ secrets.PROD_DEPLOY_HOST_KEY }}
+
+  release-notes:
+    needs: deploy
+    # Release evidence: the CHANGELOG section travels to the GitHub
+    # Release object right after the production rollout it describes.
+    # Idempotent for re-runs (edit vs create).
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Publish GitHub Release from the CHANGELOG section
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          awk -v tag="## [$TAG]" '
+            $0 == tag { in_section = 1; next }
+            in_section && /^## \[/ { exit }
+            in_section { print }
+          ' CHANGELOG.md > release-notes.md
+          [ -s release-notes.md ] || { echo "::error::CHANGELOG section for $TAG is empty"; exit 1; }
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --notes-file release-notes.md
+          else
+            gh release create "$TAG" --title "$TAG" --notes-file release-notes.md --verify-tag
+          fi

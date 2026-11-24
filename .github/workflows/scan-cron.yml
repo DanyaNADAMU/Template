@@ -1,0 +1,22 @@
+name: Deployed Image Re-scan
+
+# Caller stub: the drift detector lives in the shared catalog. Re-scans
+# the deployed digests daily: the build-time Trivy gate covers each image
+# exactly once, at build; a CVE published after the release must surface
+# as a red run (patch-release signal), not wait for the next tag.
+on:
+  schedule:
+    - cron: '30 4 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  rescan:
+    uses: Danyanadamu/Workflows/.github/workflows/scan-cron.yml@v1
+    with:
+      # Point at the image that actually runs in production (the :latest
+      # pointer the release pipeline moves); per-branch staging tags churn
+      # too fast to be meaningful drift subjects.
+      images: ghcr.io/danyanadamu/<service>:latest

@@ -1,0 +1,7 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", "helpers:pinGitHubActionDigests"],
+  "description": "Self-hosted Renovate skeleton: every bump arrives as a PR validated by the same pipelines it feeds. Update PRs need a real PAT (RENOVATE_TOKEN) because GITHUB_TOKEN-authored PRs do not trigger CI workflows. Adapt: add customManagers regex blocks for every curl-pinned scanner/builder binary your workflows fetch (see Agent/Assistant for the patterns).",
+  "schedule": ["before 6am on Monday"],
+  "prHourlyLimit": 2
+}
