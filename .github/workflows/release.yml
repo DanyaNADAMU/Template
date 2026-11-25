@@ -106,7 +106,7 @@ jobs:
         run: |
           set -euo pipefail
           awk -v tag="## [$TAG]" '
-            $0 == tag { in_section = 1; next }
+            substr($0, 1, length(tag)) == tag { in_section = 1; next }
             in_section && /^## \[/ { exit }
             in_section { print }
           ' CHANGELOG.md > release-notes.md
